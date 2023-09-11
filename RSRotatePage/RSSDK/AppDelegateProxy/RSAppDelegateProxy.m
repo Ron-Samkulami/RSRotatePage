@@ -13,8 +13,8 @@
 @property (nonatomic, strong) id<UIApplicationDelegate> appDelegate;
 /// 记录原先AppDelegate支持的设备方向，还原时需要
 @property (nonatomic, assign) UIInterfaceOrientationMask originalSupportOrientationMask;
-/// 记录是否已经还原
-@property (nonatomic, assign, readwrite) BOOL isSupportedOrientationMaskRestored;
+/// 记录是否被修改了
+@property (nonatomic, assign, readwrite) BOOL isSupportedOrientationMaskChanged;
 @end
 
 @implementation RSAppDelegateProxy
@@ -38,8 +38,12 @@
             return nil;
         }
         
-        // 修改设备支持方向
-        [self hookSupportedInterfaceOrientations];
+        // 检查是否允许hook
+        if ([[self class] shouldEnableSwizzleSupportedOrientationsFromSetting]) {
+            NSLog(@"RSSDK swizzle了界面支持方向的相关方法，正常情况下不会影响游戏的界面。如果出现界面异常问题，可在RSSDK-Info.plist中设置 37SwizzleSupportedOrientationsEnabled 为NO，来关闭该设置。如果您关闭了该设置，请联系SDK技术，因为关闭该设置可能会影响SDK部分界面的展示。");
+            // hook设备支持方向
+            [self hookSupportedInterfaceOrientations];
+        }
         
         // 也可以根据需要hook其它UIApplicationDelegate方法，并抛出去给handler处理
         
@@ -53,18 +57,31 @@
     return self;
 }
 
++ (BOOL)shouldEnableSwizzleSupportedOrientationsFromSetting {
+#warning TODO 在Info.plist中添加开关，或者动态下发配置
+    return YES;
+}
 
 #pragma mark - 修改支持方向
 - (void)hookSupportedInterfaceOrientations {
     // 先保存原始的支持方向
     [self saveOriginalSupportOrientation];
-    // 设置当前支持方向为原始方向，否则启动时原始的支持方向会失效
-    self.currentSupportOrientationMask = self.originalSupportOrientationMask;
-    // 再进行方法替换
+    // 设置当前支持方向为原始方向，否则启动时原始的支持方向会失效;注意不能用self.currentSupportOrientationMask
+    _currentSupportOrientationMask = _originalSupportOrientationMask;
+    
+    // hook AppDelegate中的方法
+    [self hookSupportedInterfaceOrientationsInAppDelegate];
+    // hook UnityViewControllerBase+iOS中的方法
+    [self hookSupportedInterfaceOrientationsInUnityDefaultViewController];
+    
+}
+
+/// hook AppDelegate中的方法
+- (void)hookSupportedInterfaceOrientationsInAppDelegate {
     SEL originalSelector = @selector(application:supportedInterfaceOrientationsForWindow:);
     SEL swizzledSelector = @selector(rv_new_application:supportedInterfaceOrientationsForWindow:);
     SEL noopSelector = @selector(rv_noop_application:supportedInterfaceOrientationsForWindow:);
-    
+        
     [self swizzlingInstance:_appDelegate originalSelector:originalSelector swizzledSelector:swizzledSelector noopSelector:noopSelector];
 }
 
@@ -75,6 +92,40 @@
 
 /// 宿主的AppDelegate可能没有实现该方法，需要先添加一个占位方法实现
 - (UIInterfaceOrientationMask)rv_noop_application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    return [RSAppDelegateProxy sharedInstance].originalSupportOrientationMask;
+}
+
+/// hook UnityViewControllerBase+iOS中的方法
+- (void)hookSupportedInterfaceOrientationsInUnityDefaultViewController
+{
+    SEL originalSelector = @selector(supportedInterfaceOrientations);
+    SEL swizzledSelector = @selector(rv_new_supportedInterfaceOrientations);
+    SEL noopSelector = @selector(rv_noop_supportedInterfaceOrientations);
+    
+    // 对UnityViewControllerBase+iOS下的所有基类控制器做swizzle
+    NSArray *classArr = @[@"UnityDefaultViewController",
+                          @"UnityPortraitOnlyViewController",
+                          @"UnityPortraitUpsideDownOnlyViewController",
+                          @"UnityLandscapeLeftOnlyViewController",
+                          @"UnityLandscapeRightOnlyViewController"
+    ];
+    for (NSString *className in classArr) {
+        // hook每一个supportedInterfaceOrientations方法
+        [self swizzlingClass:className originalSelector:originalSelector swizzledSelector:swizzledSelector noopSelector:noopSelector];
+    }
+}
+
+- (NSUInteger)rv_new_supportedInterfaceOrientations {
+    if ([RSAppDelegateProxy sharedInstance].isSupportedOrientationMaskChanged) {
+//        NSLogWarn(@"supportedInterfaceOrientations 返回了修改后的方向，%lu",(unsigned long)[RVAppDelegateProxy sharedInstance].currentSupportOrientationMask);
+        return [RSAppDelegateProxy sharedInstance].currentSupportOrientationMask;
+    } else {
+//        NSLogWarn(@"supportedInterfaceOrientations 返回了预设的方向，%lu",(unsigned long)[self rv_new_supportedInterfaceOrientations]);
+        return [self rv_new_supportedInterfaceOrientations];
+    }
+}
+
+- (NSUInteger)rv_noop_supportedInterfaceOrientations {
     return [RSAppDelegateProxy sharedInstance].originalSupportOrientationMask;
 }
 
@@ -121,16 +172,16 @@
 
 - (void)setCurrentSupportOrientationMask:(UIInterfaceOrientationMask)currentSupportOrientationMask {
     _currentSupportOrientationMask = currentSupportOrientationMask;
-    self.isSupportedOrientationMaskRestored = NO;
+    self.isSupportedOrientationMaskChanged = YES;
 }
 
 /// 恢复初始AppDelegate支持的设备方向
 - (void)restoreSupportedOrientationMask {
-    if (self.isSupportedOrientationMaskRestored) {
+    if (!self.isSupportedOrientationMaskChanged) {
         return;
     }
     self.currentSupportOrientationMask = self.originalSupportOrientationMask;
-    self.isSupportedOrientationMaskRestored = YES;
+    self.isSupportedOrientationMaskChanged = NO;
 }
 
 #pragma mark - Common

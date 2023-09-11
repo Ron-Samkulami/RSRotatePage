@@ -36,13 +36,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, weak) id<RSAppDelegateHandler> handler;
 
 
-/// 修改支持的设备方向，修改后会全局生效，如需恢复初始状态，请调用[[RVAppDelegateProxy sharedInstance] restoreSupportedOrientationMask];
-@property (nonatomic, assign, setter=setCurrentSupportOrientationMask:) UIInterfaceOrientationMask currentSupportOrientationMask;
-/// 记录是否已经还原
-@property (nonatomic, assign, readonly) BOOL isSupportedOrientationMaskRestored;
+#pragma mark 调整应用支持方向
 
-/// 恢复初始原始支持的设备方向
-- (void)restoreSupportedOrientationMask;
+/// 修改支持的设备方向
+/// 修改后会全局生效
+/// 如需恢复初始状态，需要调用[[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeed];
+@property (nonatomic, assign, setter=setCurrentSupportOrientationMask:) UIInterfaceOrientationMask currentSupportOrientationMask;
+
+/// 检查是否允许交换
++ (BOOL)shouldEnableSwizzleSupportedOrientationsFromSetting;
+
+/// 必要时恢复初始AppDelegate支持的设备方向
+- (void)restoreSupportedOrientationMaskIfNeed;
 
 @end
 

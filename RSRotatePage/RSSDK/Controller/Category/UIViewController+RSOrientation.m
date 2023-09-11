@@ -12,6 +12,8 @@
 @interface UIViewController ()
 /// 记录原始的设备方向
 @property (nonatomic, assign) UIInterfaceOrientation originalOrientation;
+/// 是否已经恢复方向，默认为NO
+@property (nonatomic, assign) BOOL isOrientationRestored;
 @end
 
 @implementation UIViewController (RSOrientation)
@@ -21,6 +23,7 @@
 static void *kForcePortrait = &kForcePortrait;
 static void *kForceLandscape = &kForceLandscape;
 static void *kOriginalOrientation = &kOriginalOrientation;
+static void *kIsOrientationRestored = &kIsOrientationRestored;
 
 /// 强制竖屏
 - (void)setForcePortrait:(BOOL)forcePortrait {
@@ -49,9 +52,21 @@ static void *kOriginalOrientation = &kOriginalOrientation;
     return [objc_getAssociatedObject(self, kOriginalOrientation) integerValue];
 }
 
+/// 强制竖屏
+- (void)setIsOrientationRestored:(BOOL)isOrientationRestored {
+    objc_setAssociatedObject(self, kIsOrientationRestored, [NSNumber numberWithBool:isOrientationRestored], OBJC_ASSOCIATION_ASSIGN);
+}
+
+- (BOOL)isOrientationRestored {
+    return [objc_getAssociatedObject(self, kIsOrientationRestored) boolValue];
+}
+
 #pragma mark - 改变页面方向
 /// 改变页面方向
 - (void)changeOrientationIfNeeded {
+    if (![RSAppDelegateProxy shouldEnableSwizzleSupportedOrientationsFromSetting]) {
+        return;
+    }
     // 先保存原来的设备方向
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
     
@@ -60,25 +75,32 @@ static void *kOriginalOrientation = &kOriginalOrientation;
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskPortrait];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationPortrait];
-    }
-    if (self.forceLandscape) {
+        // 记录未还原
+        self.isOrientationRestored = NO;
+        
+    } else if (self.forceLandscape) {
         // 先修改支持方向
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskLandscape];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationLandscapeRight];
+        // 记录未还原
+        self.isOrientationRestored = NO;
     }
 }
 
 /// 恢复页面方向
-- (void)restoreOrientation {
+- (void)restoreOrientationIfNeeded {
+    if (![RSAppDelegateProxy shouldEnableSwizzleSupportedOrientationsFromSetting]) {
+        return;
+    }
     if (!self.forcePortrait && !self.forceLandscape) {
         return;
     }
-    if ([RSAppDelegateProxy sharedInstance].isSupportedOrientationMaskRestored) {
+    if (self.isOrientationRestored) {
         return;
-    }
+    }    
     // 恢复为原始的支持方向
-    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMask];
+    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeed];
     [self changeInterfaceOrientation:self.originalOrientation];
 }
 
@@ -125,10 +147,12 @@ static void *kOriginalOrientation = &kOriginalOrientation;
 
 #pragma mark - 主类方法重写
 
-- (void)dealloc
-{
-    [self restoreOrientation];
-}
+// 未启用当前类，先注释掉dealloc方法
+//- (void)dealloc
+//{
+//    // 如果当前控制器是navigationController的RootViewController，则直接移除navigationController不会触发viewWillDisappear，因此在dealloc里调用
+//    [self restoreOrientationIfNeeded];
+//}
 
 /// 调用主类方法
 - (void)callPrimaryClassMethod:(SEL)primarySel {
