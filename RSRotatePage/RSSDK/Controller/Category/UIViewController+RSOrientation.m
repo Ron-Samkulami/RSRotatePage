@@ -12,8 +12,9 @@
 @interface UIViewController ()
 /// 记录原始的设备方向
 @property (nonatomic, assign) UIInterfaceOrientation originalOrientation;
-/// 是否已经恢复方向，默认为NO
-@property (nonatomic, assign) BOOL isOrientationRestored;
+/// 方向是否发生改变，默认为NO
+@property (nonatomic, assign) BOOL isOrientationChanged;
+
 @end
 
 @implementation UIViewController (RSOrientation)
@@ -23,7 +24,7 @@
 static void *kForcePortrait = &kForcePortrait;
 static void *kForceLandscape = &kForceLandscape;
 static void *kOriginalOrientation = &kOriginalOrientation;
-static void *kIsOrientationRestored = &kIsOrientationRestored;
+static void *kIsOrientationChanged = &kIsOrientationChanged;
 
 /// 强制竖屏
 - (void)setForcePortrait:(BOOL)forcePortrait {
@@ -53,17 +54,18 @@ static void *kIsOrientationRestored = &kIsOrientationRestored;
 }
 
 /// 强制竖屏
-- (void)setIsOrientationRestored:(BOOL)isOrientationRestored {
-    objc_setAssociatedObject(self, kIsOrientationRestored, [NSNumber numberWithBool:isOrientationRestored], OBJC_ASSOCIATION_ASSIGN);
+- (void)setIsOrientationChanged:(BOOL)isOrientationChanged {
+    objc_setAssociatedObject(self, kIsOrientationChanged, [NSNumber numberWithBool:isOrientationChanged], OBJC_ASSOCIATION_ASSIGN);
 }
 
-- (BOOL)isOrientationRestored {
-    return [objc_getAssociatedObject(self, kIsOrientationRestored) boolValue];
+- (BOOL)isOrientationChanged {
+    return [objc_getAssociatedObject(self, kIsOrientationChanged) boolValue];
 }
 
 #pragma mark - 改变页面方向
 /// 改变页面方向
 - (void)changeOrientationIfNeeded {
+    // 检查设置开关
     if (![RSAppDelegateProxy shouldEnableSwizzleSupportedOrientationsFromSetting]) {
         return;
     }
@@ -75,16 +77,16 @@ static void *kIsOrientationRestored = &kIsOrientationRestored;
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskPortrait];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationPortrait];
-        // 记录未还原
-        self.isOrientationRestored = NO;
+        // 标记方向发生改变
+        self.isOrientationChanged = YES;
         
     } else if (self.forceLandscape) {
         // 先修改支持方向
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskLandscape];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationLandscapeRight];
-        // 记录未还原
-        self.isOrientationRestored = NO;
+        // 标记方向发生改变
+        self.isOrientationChanged = YES;
     }
 }
 
@@ -96,11 +98,12 @@ static void *kIsOrientationRestored = &kIsOrientationRestored;
     if (!self.forcePortrait && !self.forceLandscape) {
         return;
     }
-    if (self.isOrientationRestored) {
+    if (!self.isOrientationChanged) {
         return;
-    }    
+    }
+    self.isOrientationChanged = NO;
     // 恢复为原始的支持方向
-    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeed];
+    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeeded];
     [self changeInterfaceOrientation:self.originalOrientation];
 }
 
@@ -186,7 +189,7 @@ static void *kIsOrientationRestored = &kIsOrientationRestored;
  */
 //- (void)changeInterfaceOrientation:(UIInterfaceOrientationMask)interfaceOrientationMask
 //{
-//    RVAppDelegateProxy *proxy = [RVAppDelegateProxy sharedInstance];
+//    RSAppDelegateProxy *proxy = [RSAppDelegateProxy sharedInstance];
 //    id<UIApplicationDelegate> appDelegate = proxy.appDelegate;
 //    __weak __typeof(self) weakSelf = self;
 //    IMP originalIMP = method_getImplementation(class_getInstanceMethod([appDelegate class], @selector(application:supportedInterfaceOrientationsForWindow:)));

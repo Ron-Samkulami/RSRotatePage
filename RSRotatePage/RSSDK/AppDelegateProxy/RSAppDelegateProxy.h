@@ -47,7 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)shouldEnableSwizzleSupportedOrientationsFromSetting;
 
 /// 必要时恢复初始AppDelegate支持的设备方向
-- (void)restoreSupportedOrientationMaskIfNeed;
+- (void)restoreSupportedOrientationMaskIfNeeded;
 
 @end
 

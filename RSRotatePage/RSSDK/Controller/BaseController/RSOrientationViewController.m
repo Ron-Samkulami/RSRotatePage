@@ -12,8 +12,8 @@
 @interface RSOrientationViewController ()
 /// 记录原始的设备方向
 @property (nonatomic, assign) UIInterfaceOrientation originalOrientation;
-/// 是否已经恢复方向，默认为NO
-@property (nonatomic, assign) BOOL isOrientationRestored;
+/// 方向是否发生改变，默认为NO
+@property (nonatomic, assign) BOOL isOrientationChanged;
 @end
 
 @implementation RSOrientationViewController
@@ -44,6 +44,7 @@
 #pragma mark - 改变页面方向
 /// 改变页面方向
 - (void)changeOrientationIfNeeded {
+    // 检查设置开关
     if (![RSAppDelegateProxy shouldEnableSwizzleSupportedOrientationsFromSetting]) {
         return;
     }
@@ -61,21 +62,22 @@
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskPortrait];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationPortrait];
-        // 记录未还原
-        self.isOrientationRestored = NO;
+        // 标记方向发生改变
+        self.isOrientationChanged = YES;
         
     } else if (self.forceLandscape) {
         // 先修改支持方向
         [[RSAppDelegateProxy sharedInstance] setCurrentSupportOrientationMask:UIInterfaceOrientationMaskLandscape];
         // 再调整方向
         [self changeInterfaceOrientation:UIInterfaceOrientationLandscapeRight];
-        // 记录未还原
-        self.isOrientationRestored = NO;
+        // 标记方向发生改变
+        self.isOrientationChanged = YES;
     }
 }
 
 /// 恢复页面方向
 - (void)restoreOrientationIfNeeded {
+    // 检查设置开关
     if (![RSAppDelegateProxy shouldEnableSwizzleSupportedOrientationsFromSetting]) {
         return;
     }
@@ -85,12 +87,12 @@
         return;
     }
     // 避免重复调用
-    if (self.isOrientationRestored) {
+    if (!self.isOrientationChanged) {
         return;
     }
-    self.isOrientationRestored = YES;
+    self.isOrientationChanged = NO;
     // 恢复为原始的支持方向
-    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeed];
+    [[RSAppDelegateProxy sharedInstance] restoreSupportedOrientationMaskIfNeeded];
     [self changeInterfaceOrientation:self.originalOrientation];
     
 }
