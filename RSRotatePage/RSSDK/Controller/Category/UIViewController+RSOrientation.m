@@ -28,7 +28,7 @@ static void *kIsOrientationChanged = &kIsOrientationChanged;
 
 /// 强制竖屏
 - (void)setForcePortrait:(BOOL)forcePortrait {
-    objc_setAssociatedObject(self, kForcePortrait, [NSNumber numberWithBool:forcePortrait], OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(self, kForcePortrait, [NSNumber numberWithBool:forcePortrait], OBJC_ASSOCIATION_RETAIN);
 }
 
 - (BOOL)forcePortrait {
@@ -37,7 +37,7 @@ static void *kIsOrientationChanged = &kIsOrientationChanged;
 
 /// 强制横屏
 - (void)setForceLandscape:(BOOL)forceLandscape {
-    objc_setAssociatedObject(self, kForceLandscape, [NSNumber numberWithBool:forceLandscape], OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(self, kForceLandscape, [NSNumber numberWithBool:forceLandscape], OBJC_ASSOCIATION_RETAIN);
 }
 
 - (BOOL)forceLandscape {
@@ -46,7 +46,7 @@ static void *kIsOrientationChanged = &kIsOrientationChanged;
 
 /// 原始方向
 - (void)setOriginalOrientation:(UIInterfaceOrientation)originalOrientation {
-    objc_setAssociatedObject(self, kOriginalOrientation, [NSNumber numberWithInteger:(NSInteger)originalOrientation], OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(self, kOriginalOrientation, [NSNumber numberWithInteger:(NSInteger)originalOrientation], OBJC_ASSOCIATION_RETAIN);
 }
 
 - (UIInterfaceOrientation)originalOrientation {
@@ -55,7 +55,7 @@ static void *kIsOrientationChanged = &kIsOrientationChanged;
 
 /// 强制竖屏
 - (void)setIsOrientationChanged:(BOOL)isOrientationChanged {
-    objc_setAssociatedObject(self, kIsOrientationChanged, [NSNumber numberWithBool:isOrientationChanged], OBJC_ASSOCIATION_ASSIGN);
+    objc_setAssociatedObject(self, kIsOrientationChanged, [NSNumber numberWithBool:isOrientationChanged], OBJC_ASSOCIATION_RETAIN);
 }
 
 - (BOOL)isOrientationChanged {
